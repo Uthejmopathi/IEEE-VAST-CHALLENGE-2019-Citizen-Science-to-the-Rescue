@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="keyword" content="VAST, Challenge, Visualization, Data, Dashboard">
+    <title>VAST DataVIZ</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="static/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <!--external css-->
+    <link href="static/font-awesome/css/font-awesome.css" rel="stylesheet">
+    <!-- Custom styles for this template -->
+    <link href="static/custom-css/style.css" rel="stylesheet">
+    <link href="static/custom-css/style-responsive.css" rel="stylesheet">
+    <script src="https://d3js.org/d3.v3.min.js"></script>
+
+</head>
+
+<body>
+<section id="main-container">
+    <!--header start-->
+    <header class="header black-bg">
+        <!--logo start-->
+        <a href="/" style="margin-top: 10px; margin-bottom:5px"
+           class="logo"><b>VAST-<span>DATAVIZ</span></b></a>
+        <!--logo end-->
+    </header>
+    <!--header end-->
+    <!-- **********************************************************************************************************************************************************
+        MAIN SIDEBAR MENU
+        *********************************************************************************************************************************************************** -->
+    <!--sidebar start-->
+    <aside>
+        <div id="sidebar" class="nav-collapse ">
+            <!-- sidebar menu start-->
+            <ul class="sidebar-menu" id="nav-accordion">
+                <li class="mt">
+                    <a href="/">
+                        <i class="fa fa-dashboard"></i>
+                        <span>Sensor Readings</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/time_series">
+                        <i class="fa fa-clock-o"></i>
+                        <span>Time Series</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="active" href="/mb_sen_timeline">
+                        <i class="fa fa-map-marker"></i>
+                        <span>Mobile sensor timeline</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/st_sen_timeline">
+                        <i class="fa fa-map-marker"></i>
+                        <span>Stationary sensor timeline</span>
+                    </a>
+                </li>
+            </ul>
+            <!-- sidebar menu end-->
+        </div>
+    </aside>
+    <!--sidebar end-->
+    <!-- **********************************************************************************************************************************************************
+        MAIN CONTENT
+        *********************************************************************************************************************************************************** -->
+    <!--main content start-->
+    <section id="main-content">
+        <section class="wrapper">
+            <div class="row">
+                <div class="col-lg-9 main-chart">
+                    <!--CUSTOM CHART START -->
+                    <div class="border-head">
+                        <h3>Time Series Analysis</h3>
+                    </div>
+                    <div id='container' style="width: 100%; height: 600px">
+                        <svg id="metric-modal"/>
+                    </div>
+
+                </div>
+                <!-- /col-lg-9 END SECTION MIDDLE -->
+            </div>
+            <!-- /row -->
+        </section>
+    </section>
+    <!--main content end-->
+</section>
+<!-- js placed at the end of the document so the pages load faster -->
+<script src="static/jquery/jquery.min.js"></script>
+
+<script src="static/bootstrap/js/bootstrap.min.js"></script>
+<!--common script for all pages-->
+<script src="static/common-scripts.js"></script>
+
+<script src="//d3js.org/d3.v3.min.js"></script>
+<script>
+
+var margin = {top: 20, right: 80, bottom: 30, left: 50},
+    width = 960 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+
+var parseDate = d3.time.format("%Y-%m-%d %H:%M:%S").parse;
+
+var x = d3.time.scale()
+    .range([0, width]);
+
+var y = d3.scale.linear()
+    .range([height, 0]);
+
+var color = d3.scale.category10();
+
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .orient("left");
+
+var line = d3.svg.line()
+    .interpolate("basis")
+    .x(function(d) { return x(d.date); })
+    .y(function(d) { return y(d.frequence); });
+
+var svg = d3.select("#metric-modal").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  	.append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+d3.tsv("static/file_mb_sen_stats.csv", function(error, data) {
+  if (error) throw error;
+
+  console.log(d3.keys(data[0]));
+  color.domain(d3.keys(data[0]).filter(function(key) { return key !== "date"; }));
+
+  data.forEach(function(d) {
+    d.date = parseDate(d.date);
+  });
+
+  var emotions = color.domain().map(function(name) {
+    return {
+      name: name,
+      values: data.map(function(d) {
+        return {date: d.date, frequence: +d[name]};
+      })
+    };
+  });
+
+  x.domain(d3.extent(data, function(d) { return d.date; }));
+
+  y.domain([
+    d3.min(emotions, function(c) { return d3.min(c.values, function(v) { return v.frequence; }); }),
+    d3.max(emotions, function(c) { return d3.max(c.values, function(v) { return v.frequence; }); })
+  ]);
+
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(xAxis);
+
+  svg.append("g")
+      .attr("class", "y axis")
+      .call(yAxis)
+    .append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 6)
+      .attr("dy", ".71em")
+      .style("text-anchor", "end")
+      .text("Frequenza (tf-idf)");
+
+  var emotion = svg.selectAll(".emotion")
+      .data(emotions)
+      .enter().append("g")
+      .attr("class", "emotion");
+
+  emotion.append("path")
+      .attr("class", "line")
+      .attr("d", function(d) { return line(d.values); })
+      .style("stroke", function(d) { return color(d.name); });
+
+  emotion.append("text")
+      .datum(function(d) { return {name: d.name, value: d.values[d.values.length - 1]}; })
+      .attr("transform", function(d) { return "translate(" + x(d.value.date) + "," + y(d.value.frequence) + ")"; })
+      .attr("x", 3)
+      .attr("dy", ".35em")
+      .text(function(d) { return d.name; });
+});
+
+</script>
